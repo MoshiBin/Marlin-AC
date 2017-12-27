@@ -8,28 +8,28 @@ This is the developers branch for Marlin-AC, always ahead of official Marlin. Fi
 
 ## Stable Release Branch
 
-This branch contains the latest tagged version of Marlin (currently 1.1.8 – Xmas 2017) with all the additional AC developments to date.
+This branch contains the latest tagged version of Marlin (currently 1.1.8(bis) – Xmas 2017) with all the additional AC developments to date.
 
 
 ## Current Status: In Development
 
 Marlin-AC is in constant development to make it perform better and more stable based on the feedback of the Marlin-AC community.
 
-Xmas-AC
+Xmas-AC <img src="pic/waiting.png" />
 - merge update to Marlin 1.1.8
 - include G-force
 - destructive Xmas bug fixed
 
-1.1.7-AC
+1.1.7-AC <img src="pic/waiting.png" />
 - merge update to Marlin 1.1.7
 - include G-force
 - z_offset shift Zx.xx
 
-G-force7-AC
+G-force7-AC <img src="pic/waiting.png" />
 - revert kinematic iterations
 - z_offset calibration P-1
 
-G-force6-AC
+G-force6-AC <img src="pic/waiting.png" />
 - new convergence matrices
 - new auto tune
 - new raw calibration
@@ -38,35 +38,34 @@ G-force6-AC
 - updated documentation
 
 1.1.6f-AC
-- undo raw calibration
-- delta_height follows z-offset
+- (abandonned)
 
-1.1.6e-AC
+1.1.6e-AC <img src="pic/waiting.png" />
 - probe error handling
 - verbose level (0-3)
 - raw calibration
 
-1.1.6d-AC
+1.1.6d-AC <img src="pic/merged.png" />
 - delta_height variable
 - update to bugfix1.1.x G33 changes
 
-1.1.6c-AC
+1.1.6c-AC <img src="pic/merged.png" />
 - Marlin 1.1.5 bugs fixed
 
-1.1.6b-AC
+1.1.6b-AC <img src="pic/merged.png" />
 - universal number of calibration points
 - new probe grids
 
-1.1.6a-AC
+1.1.6a-AC <img src="pic/merged.png" />
 - prepare for 2.0.0 release
 
-1.1.6-AC
+1.1.6-AC <img src="pic/merged.png" />
 - merge update to Marlin 1.1.6
 
-1.1.5d-AC
+1.1.5d-AC <img src="pic/merged.png" />
 - A parameter : auto tune calibration factors
 
-1.1.5c-AC
+1.1.5c-AC <img src="pic/merged.png" />
 - documentation added
 - new matrices
 - move code to functions
@@ -74,65 +73,65 @@ G-force6-AC
 1.1.5b-AC
 - (abandoned)
 
-1.1.5a-AC
+1.1.5a-AC <img src="pic/merged.png" />
 - simplified matrix names
 - new angle least squares normalization
 - no normalizing on end-stops M666 and tower angles M665
 - P0 normalize only (no probing)
 
-1.1.5-AC
+1.1.5-AC <img src="pic/merged.png" />
 - merge update to Marlin 1.1.5
 
-1.1.4-AC
+1.1.4-AC <img src="pic/merged.png" />
 - merge update to Marlin 1.1.4
 - LCD fixes for manual probing
 
-1.1.3d-AC
+1.1.3d-AC <img src="pic/merged.png" />
 - calibration with manual probing
 
-1.1.3c-AC
+1.1.3c-AC <img src="pic/merged.png" />
 - alternative eccentric probe is_reachable fix
 
-1.1.3b-AC
+1.1.3b-AC <img src="pic/merged.png" />
 - some minor cleanup
 - re-arrange delta configs
 - eccentric probe is_reachable test
 
-1.1.3a-AC
+1.1.3a-AC <img src="pic/merged.png" />
 - F parameter
 
-1.1.3-AC
+1.1.3-AC <img src="pic/merged.png" />
 - merge update to Marlin 1.1.3
 - LCD menu fix
 
-1.1.2-AC
+1.1.2-AC <img src="pic/merged.png" />
 - merge update to Marlin 1.1.2
 - E parameter
 - cleanup code
 
-1.1.1b-AC
+1.1.1b-AC <img src="pic/merged.png" />
 - eccentric probe fix
 - don't stow after each probe
 - deploy/stow fix
 
-1.1.1a-AC
+1.1.1a-AC <img src="pic/merged.png" />
 - test if outer radius is reachable
 - C-parameter : calibration precision
 - various small improvements
 
-1.1.1-AC
+1.1.1-AC <img src="pic/merged.png" />
 - first probe to set height and prevent scraping of the bed
 - completed naming and renamed tests to more comprehensive names
 - merge update to Marlin 1.1.1
 
-1.1.0b-AC
+1.1.0b-AC <img src="pic/merged.png" />
 - prevent premature end of the iterations
 
-1.1.0a-AC
+1.1.0a-AC <img src="pic/merged.png" />
 - A and O parameters made obsolete
 - quick homing with homing_delta()
 
-1.1.0-AC
+1.1.0-AC <img src="pic/merged.png" />
 - update bugfixes from Marlin-1.1.0-1
 
 
