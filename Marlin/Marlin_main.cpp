@@ -1701,7 +1701,7 @@ void do_blocking_move_to_xy(const float &rx, const float &ry, const float &fr_mm
 //  - Reset the command timeout
 //  - Enable the endstops (for endstop moves)
 //
-static void setup_for_endstop_or_probe_move() {
+void setup_for_endstop_or_probe_move() {
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) DEBUG_POS("setup_for_endstop_or_probe_move", current_position);
   #endif
@@ -1711,7 +1711,7 @@ static void setup_for_endstop_or_probe_move() {
   refresh_cmd_timeout();
 }
 
-static void clean_up_after_endstop_or_probe_move() {
+void clean_up_after_endstop_or_probe_move() {
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) DEBUG_POS("clean_up_after_endstop_or_probe_move", current_position);
   #endif
@@ -5369,7 +5369,32 @@ void home_all_axes() { gcode_G28(true); }
 
 #if ENABLED(DELTA_AUTO_CALIBRATION)
 
-  static void ac_cleanup(
+  bool ac_home() {
+    endstops.enable(true);
+    if (!home_delta())
+      return false;
+    endstops.not_homing();
+    return true;
+  }
+
+  void ac_setup(const bool reset_bed) {
+    #if HOTENDS > 1
+      const uint8_t old_tool_index = active_extruder;
+      tool_change(0, 0, true);
+      #define AC_CLEANUP() ac_cleanup(old_tool_index)
+    #else
+      #define AC_CLEANUP() ac_cleanup()
+    #endif
+
+    stepper.synchronize();
+    setup_for_endstop_or_probe_move();
+
+    #if HAS_LEVELING
+      if(reset_bed) reset_bed_level(); // After full calibration bed-level data is no longer valid
+    #endif
+  }
+
+  void ac_cleanup(
     #if HOTENDS > 1
       const uint8_t old_tool_index
     #endif
@@ -5377,14 +5402,16 @@ void home_all_axes() { gcode_G28(true); }
     #if ENABLED(DELTA_HOME_TO_SAFE_ZONE)
       do_blocking_move_to_z(delta_clip_start_height);
     #endif
-    STOW_PROBE();
+    #if HAS_BED_PROBE
+      STOW_PROBE();
+    #endif
     clean_up_after_endstop_or_probe_move();
     #if HOTENDS > 1
       tool_change(old_tool_index, 0, true);
     #endif
-  }
+}
 
-  static void print_signed_float(const char * const prefix, const float &f) {
+  void print_signed_float(const char * const prefix, const float &f) {
     SERIAL_PROTOCOLPGM("  ");
     serialprintPGM(prefix);
     SERIAL_PROTOCOLCHAR(':');
@@ -5418,7 +5445,7 @@ void home_all_axes() { gcode_G28(true); }
     }
     if (!end_stops && !tower_angles) {
       SERIAL_PROTOCOL_SP(30);
-      print_signed_float(PSTR("Offset"), cal_ref);
+      print_signed_float(PSTR("Offset"), zprobe_zoffset);
     }
     SERIAL_EOL();
   }
@@ -5452,7 +5479,7 @@ void home_all_axes() { gcode_G28(true); }
    */
   static float std_dev_points(float z_pt[NPP + 1], const bool _0p_cal, const bool _1p_cal, const bool _4p_cal, const bool _4p_opp) {
     if (!_0p_cal) {
-      LOOP_CAL_ALL(rad) z_pt[rad] +=  cal_ref;
+      LOOP_CAL_ALL(rad) z_pt[rad] +=  zprobe_zoffset;
       float S2 = sq(z_pt[CEN]);
       int16_t N = 1;
       if (!_1p_cal) { // std dev from zero plane
@@ -5476,6 +5503,14 @@ void home_all_axes() { gcode_G28(true); }
     #else
       lcd_probe_pt(nx, ny);
     #endif
+  }
+
+  static float probe_z_shift(const float centre) {
+    STOW_PROBE();
+    endstops.enable_z_probe(false);
+    float z_shift = lcd_probe_pt(0, 0) - centre;
+    endstops.enable_z_probe(true);
+    return z_shift;
   }
 
   /**
@@ -5550,11 +5585,7 @@ void home_all_axes() { gcode_G28(true); }
           LOOP_CAL_RAD(rad)
             z_pt[rad] /= _7P_STEP / steps;
 
-        // goto centre
-        const float old_feedrate_mm_s = feedrate_mm_s;
-        feedrate_mm_s = XY_PROBE_FEEDRATE_MM_S;
-        do_blocking_move_to_xy(0, 0);
-        feedrate_mm_s = old_feedrate_mm_s;
+        do_blocking_move_to_xy(0.0, 0.0);
       }
     }
     return true;
@@ -5672,14 +5703,12 @@ void home_all_axes() { gcode_G28(true); }
    * Parameters:
    *
    *   Pn  Number of probe points:
-   *      P-1    Calibrates z_offset only with center probe and paper test.
-   *      P0     Normalizes settings without probing.
-   *      P1     Calibrates height only with center probe.
-   *      P2     Probe center and towers. Calibrate height, endstops and delta radius.
-   *      P3     Probe all positions: center, towers and opposite towers. Calibrate all.
-   *      P4-P10 Probe all positions at different itermediate locations and average them.
-   *
-   *   Zn.nn  Shifts the z_offset calibration up/down by the specified amount.
+   *      P-1      Restores calibration and sets the z_offset with a center probe and paper test.
+   *      P0 Zn.nn Restores calibration and shifts the z_offset up/down by the specified amount.
+   *      P1       Calibrates height only with center probe.
+   *      P2       Probe center and towers. Calibrate height, endstops and delta radius.
+   *      P3       Probe all positions: center, towers and opposite towers. Calibrate all.
+   *      P4-P10   Probe all positions at different itermediate locations and average them.
    *
    *   T   Don't calibrate tower angle corrections
    *
@@ -5729,7 +5758,6 @@ void home_all_axes() { gcode_G28(true); }
 
     const bool towers_set           = !parser.seen('T'),
                stow_after_each      = parser.seen('E'),
-               _Zo_calibration      = probe_points == -1,
                _0p_calibration      = probe_points == 0,
                _1p_calibration      = probe_points == 1 || probe_points == -1,
                _4p_calibration      = probe_points == 2,
@@ -5775,36 +5803,23 @@ void home_all_axes() { gcode_G28(true); }
       }
     }
 
-    #if HAS_LEVELING
-      reset_bed_level(); // After calibration bed-level data is no longer valid
-    #endif
-
-    #if HOTENDS > 1
-      const uint8_t old_tool_index = active_extruder;
-      tool_change(0, 0, true);
-      #define AC_CLEANUP() ac_cleanup(old_tool_index)
-    #else
-      #define AC_CLEANUP() ac_cleanup()
-    #endif
-
     // Report settings
 
-    const char *checkingac = PSTR("Checking... AC"); // TODO: Make translatable string
+    const char *checkingac = PSTR("Checking... AC");
     serialprintPGM(checkingac);
     if (verbose_level == 0) SERIAL_PROTOCOLPGM(" (DRY-RUN)");
+    else refresh_auto_cal_ref(0.0);
     SERIAL_EOL();
-    lcd_setstatusPGM(checkingac);
+    char mess[11];
+    strcpy_P(mess, checkingac);
+    lcd_setstatus(mess);
 
     print_calibration_settings(_endstop_results, _angle_results);
 
-    stepper.synchronize();
-    setup_for_endstop_or_probe_move();
-    endstops.enable(true);
-    if (!_0p_calibration) {
-      if (!home_delta())
-        return;
-      endstops.not_homing();
-    }
+    ac_setup(!_0p_calibration && !_1p_calibration);
+
+    if (!_0p_calibration)
+      if (!ac_home()) return;
 
     do { // start iterations
 
@@ -5856,17 +5871,6 @@ void home_all_axes() { gcode_G28(true); }
         #define Z0(I) ZP(0, I)
 
         // calculate factors
-        if (_Zo_calibration) {
-          #if HAS_BED_PROBE
-            STOW_PROBE();
-            endstops.enable_z_probe(false);
-            z_shift = lcd_probe_pt(0, 0) - z_at_pt[CEN];
-            endstops.enable_z_probe(true);
-          #else
-            z_shift = 0.0;
-          #endif
-        }
-        refresh_auto_cal_ref(z_shift);
         const float cr_old = delta_calibration_radius;
         if (_7p_9_centre) delta_calibration_radius *= 0.9;
         h_factor = auto_tune_h();
@@ -5876,6 +5880,12 @@ void home_all_axes() { gcode_G28(true); }
 
         switch (probe_points) {
           case -1:
+            #if HAS_BED_PROBE
+              z_shift = probe_z_shift(z_at_pt[CEN]);
+            #else
+              z_shift = 0.0;
+            #endif
+
           case 0:
             test_precision = 0.00; // forced end
             break;
@@ -5936,8 +5946,11 @@ void home_all_axes() { gcode_G28(true); }
 
         // adjust delta_height and endstops by the max amount
         const float z_temp = MAX3(delta_endstop_adj[A_AXIS], delta_endstop_adj[B_AXIS], delta_endstop_adj[C_AXIS]);
-        delta_height -= z_temp + z_shift;
+        delta_height -= z_temp;
         LOOP_XYZ(axis) delta_endstop_adj[axis] -= z_temp;
+
+        refresh_auto_cal_ref(z_shift);
+        z_shift = NAN;
       }
       recalc_delta_settings();
       NOMORE(zero_std_dev_min, zero_std_dev);
@@ -6005,12 +6018,7 @@ void home_all_axes() { gcode_G28(true); }
           sprintf_P(&mess[15], PSTR("%03i.x"), (int)round(zero_std_dev));
         lcd_setstatus(mess);
       }
-
-      endstops.enable(true);
-      if (!home_delta())
-        return;
-      endstops.not_homing();
-
+      if (!ac_home()) return;
     }
     while (((zero_std_dev < test_precision && iterations < 31) || iterations <= force_iterations) && zero_std_dev > calibration_precision);
 
@@ -8841,6 +8849,7 @@ inline void gcode_M205() {
           }
         #endif
       }
+    recalc_delta_settings();
     }
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (DEBUGGING(LEVELING)) {

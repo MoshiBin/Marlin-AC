@@ -21,17 +21,35 @@
  */
 
 #include "MarlinConfig.h"
-#include "Marlin.h"
 
 #if ENABLED(DELTA_AUTO_CALIBRATION)
 
 #include "delta_auto_cal.h"
+#include "Marlin.h"
 
-float cal_ref;
+void refresh_auto_cal_ref(float z_shift){
+  static float cal_zoffset,
+               cal_height,
+               cal_endstop_adj[ABC],
+               cal_radius,
+               cal_tower_angle_trim[ABC],
+               cal_diagonal_rod;
 
-void refresh_auto_cal_ref(const float z_shift){   
-    if (!isnan(z_shift)) zprobe_zoffset = cal_ref + z_shift;
-    cal_ref = zprobe_zoffset;
+  if (!isnan(z_shift)){
+    z_shift += zprobe_zoffset - cal_zoffset;
+    zprobe_zoffset = cal_zoffset + z_shift;
+    delta_height = cal_height - z_shift;
+    COPY(delta_endstop_adj, cal_endstop_adj);
+    delta_radius = cal_radius;
+    COPY(delta_tower_angle_trim, cal_tower_angle_trim);
+    delta_diagonal_rod = cal_diagonal_rod;
+  }
+  cal_zoffset = zprobe_zoffset;
+  cal_height = delta_height;
+  COPY(cal_endstop_adj, delta_endstop_adj);
+  cal_radius = delta_radius;
+  COPY(cal_tower_angle_trim, delta_tower_angle_trim);
+  cal_diagonal_rod = delta_diagonal_rod;
 }
 
 #endif // DELTA_AUTO_CALIBRATION
